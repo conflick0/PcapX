@@ -47,7 +47,8 @@ def get_endpoint_info(file_path):
     # get ip info
     df = get_ip_info(file_path)
 
-    if len(df) == 0: return df
+    # check empty
+    if len(df) == 0: return None
 
     # get geo info
     ip_geo_dict = get_ip_geo_dict(df)
@@ -68,9 +69,11 @@ def creat_endpoint_csv(workspace_dir):
     for pcap_file in pcap_files:
         print(f'processing {pcap_file} ...')
         df = get_endpoint_info(pcap_file)
+        print(f'{pcap_file} done')
+        if df is None: continue
         out_df = pd.concat([out_df, df], axis=0)
         out_df = out_df.drop_duplicates()
-        print(f'{pcap_file} done')
+
 
     out_df = out_df.fillna('')
     out_df.insert(0, 'id', out_df.index + 1)
