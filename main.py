@@ -1,3 +1,4 @@
+import glob
 import os
 import platform
 import subprocess
@@ -5,30 +6,27 @@ import subprocess
 import geoip2.database
 import pandas as pd
 
+WIRE_SHARK_PATH = 'C:\Program Files\Wireshark'
 
-WIRE_SHARK_PATH ='C:\Program Files\Wireshark'
 
-
-def get_ip_info():
-    print('get ip info...')
-    base_command = 'tshark -r *.pcap -Y ip -T fields -e ip.src -e ip.dst -e _ws.col.Protocol -E separator=","'
+def get_ip_info(file_path):
+    base_command = f'tshark -r {file_path} -Y ip -T fields -e ip.src -e ip.dst -e _ws.col.Protocol -E separator=","'
 
     if platform.system() == 'Windows':
-        command = f'$env:path += ";{WIRE_SHARK_PATH}"; {base_command} | Sort-Object | Get-Unique  | Export-Csv -Path "data.csv" -NoTypeInformation'
+        command = f'$env:path += ";{WIRE_SHARK_PATH}"; {base_command} | Sort-Object | Get-Unique  | Out-File -encoding utf8 "data/tmp.csv"'
         result = subprocess.run(["powershell", "-Command", command], capture_output=True, text=True)
     else:
-        command = f'{base_command} | sort | uniq > data.csv'
+        command = f'{base_command} | sort | uniq > data/tmp.csv'
         result = subprocess.run(command, shell=True, capture_output=True, text=True)
 
     # Check the result
     if result.returncode == 0:
-        print("get ip info successfully.")
-        return pd.read_csv('data.csv', header=None, names=['src.ip', 'dst.ip', 'protocol'])
+        return pd.read_csv('data/tmp.csv', header=None, names=['src.ip', 'dst.ip', 'protocol'])
     else:
         print("tshark command failed with return code:", result.returncode)
         print("Error:")
         print(result.stderr)
-        return None
+        raise Exception("tshark command failed")
 
 
 def get_geo_info(ip):
@@ -40,29 +38,50 @@ def get_geo_info(ip):
             return [None, None, None, None]
 
 
-def creat_report_csv():
+def get_ip_geo_dict(df):
+    ips = set(df['src.ip'].values.tolist() + df['dst.ip'].values.tolist())
+    return {ip: get_geo_info(ip) for ip in ips}
+
+
+def get_endpoint_info(file_path):
     # get ip info
-    df = get_ip_info()
-    if df is None: return
+    df = get_ip_info(file_path)
+
+    if len(df) == 0: return df
 
     # get geo info
-    print('get geo info...')
-    s_df = pd.DataFrame(
-        df['src.ip'].apply(lambda x: get_geo_info(x)).tolist(),
-        columns=['src.city', 'src.country', 'src.lat', 'src.lon']
-    )
-    d_df = pd.DataFrame(
-        df['dst.ip'].apply(lambda x: get_geo_info(x)).tolist(),
-        columns=['dst.city', 'dst.country', 'dst.lat', 'dst.lon']
-    )
+    ip_geo_dict = get_ip_geo_dict(df)
 
-    df = pd.concat([df, s_df, d_df], axis=1)
+    # map ip to geo
+    geo_col = ['src.city', 'src.country', 'src.lat', 'src.lon', 'dst.city', 'dst.country', 'dst.lat', 'dst.lon']
+    geo_df = df.apply(lambda x: pd.Series(ip_geo_dict[x.iloc[0]]+ip_geo_dict[x.iloc[1]], index=geo_col), axis=1)
 
-    df.to_csv('report.csv', index=False)
+    # concat ip and geo df
+    df = pd.concat([df, geo_df], axis=1)
+    return df
+
+
+def creat_endpoint_csv(workspace_dir):
+    pcap_files = glob.glob(os.path.join(workspace_dir, '*.pcap'))
+
+    out_df = pd.DataFrame()
+    for pcap_file in pcap_files:
+        print(f'processing {pcap_file} ...')
+        df = get_endpoint_info(pcap_file)
+        out_df = pd.concat([out_df, df], axis=0)
+        out_df = out_df.drop_duplicates()
+        print(f'{pcap_file} done')
+
+    out_df = out_df.fillna('')
+    out_df.insert(0, 'id', out_df.index + 1)
+
+    out_df.to_csv('endpoint.csv', index=False)
 
     print('done')
 
 
 if __name__ == '__main__':
+    workspace_dir = 'workspace'
+    os.makedirs(workspace_dir, exist_ok=True)
     os.makedirs('data', exist_ok=True)
-    creat_report_csv()
+    creat_endpoint_csv(workspace_dir)
