@@ -1,29 +1,19 @@
 # PcapX
-Get ip and geo information from pcap.
-## Installation
-### Download wireshark (tshark)
-* Download from [here](https://www.wireshark.org/download.html).
-### Download GeoLite2-City.mmdb
-* Download `GeoLite2-City.mmdb` from [here](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data).
-* Put `GeoLite2-City.mmdb` into `data` dir.
-### Install package
+extract ip and compare with blacklist
+## Install package
 ```
 pip install -r requirements.txt
 ```
-### Download test pcap (optional)
-* Download `Aleta_29072017.pcap` from [here](http://dataset.tlm.unavarra.es/ransomware/).
 ## Usage
-* set wireshark path in `main.py`. (for windows)
+* set wireshark path in `01_extract_ip.py`. (for windows)
 ```
 WIRE_SHARK_PATH ='C:\Program Files\Wireshark'
 ```
-* run `main.py` to get ip geo report.
+* run `01_extract_ip.py` to extract ip, write ip list csv to `output`
 ```
-python main.py
+python 01_extract_ip.py
 ```
+* run `02_compare_blacklist.py` to compare blacklist, write black ip csv to `report`
 ```
-src.ip,dst.ip,protocol,src.city,src.country,src.lat,src.lon,dst.city,dst.country,dst.lat,dst.lon
-192.168.1.5,192.168.1.4,TCP,,,,,,,,
-192.168.1.5,192.168.1.4,UDP,,,,,,,,
-8.8.8.8,192.168.1.4,DNS,,United States,37.751,-97.822,,,,
+python 02_compare_blacklist.py
 ```
