@@ -3,6 +3,8 @@
 *.pcap
 *.csv
 *.mmdb
+*.pcap
+*.pcapng
 
 
 # IntelliJ project files
