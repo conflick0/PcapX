@@ -16,6 +16,8 @@ WIRESHARK_PATH = 'C:\Program Files\Wireshark'
 class EXTRACT_TYPE:
     ENDPOINT='endpoint'
     CONV='conv'
+    CONV_TCP='conv_tcp'
+    CONV_UDP='conv_udp'
 
 
 class Worker(threading.Thread):
@@ -83,7 +85,7 @@ def extract_ip(extract_type, csv_files):
     :param csv_files:
     :return: df
     """
-    if extract_type == EXTRACT_TYPE.CONV:
+    if extract_type == EXTRACT_TYPE.CONV or extract_type == EXTRACT_TYPE.CONV_TCP or extract_type == EXTRACT_TYPE.CONV_UDP:
         names = ['src_ip', 'dst_ip']
     elif extract_type == EXTRACT_TYPE.ENDPOINT:
         names = ['ip']
@@ -100,6 +102,13 @@ def extract_ip(extract_type, csv_files):
 
         # drop duplicates
         out_df = out_df.drop_duplicates()
+
+    # post process, port
+    if extract_type == EXTRACT_TYPE.CONV_TCP or extract_type == EXTRACT_TYPE.CONV_UDP:
+        out_df['src_port'] = out_df['src_ip'].map(lambda x: x.split(':')[1])
+        out_df['dst_port'] = out_df['dst_ip'].map(lambda x: x.split(':')[1])
+        out_df['src_ip'] = out_df['src_ip'].map(lambda x: x.split(':')[0])
+        out_df['dst_ip'] = out_df['dst_ip'].map(lambda x: x.split(':')[0])
 
     return out_df
 
